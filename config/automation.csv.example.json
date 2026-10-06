@@ -1,0 +1,31 @@
+{
+  "interval_minutes": 15,
+  "detect_after_import": true,
+  "participants": [
+    {
+      "participant_id": "example_001",
+      "source": "csv",
+      "csv_path": "sample_data/example_001.csv"
+    },
+    {
+      "participant_id": "example_002",
+      "source": "csv",
+      "csv_path": "sample_data/example_002.csv"
+    },
+    {
+      "participant_id": "example_003",
+      "source": "csv",
+      "csv_path": "sample_data/example_003.csv"
+    },
+    {
+      "participant_id": "example_004",
+      "source": "csv",
+      "csv_path": "sample_data/example_004.csv"
+    },
+    {
+      "participant_id": "example_005",
+      "source": "csv",
+      "csv_path": "sample_data/example_005.csv"
+    }
+  ]
+}

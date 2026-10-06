@@ -1,0 +1,50 @@
+# 認証情報・秘密情報
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*secret*.json
+google-services.json
+
+# Slackの実利用設定
+/config/slack_participants*.json
+!/config/slack_participants.example.json
+/config/slack_workspaces*.json
+!/config/slack_workspaces.example.json
+
+# 個人の健康データ・解析結果
+/data/
+/reports/
+/sample_data/
+*.db
+*.sqlite*
+*.csv
+
+# Python環境・キャッシュ
+.venv/
+**/__pycache__/
+*.py[cod]
+
+# Android・Gradle・IDE生成物
+.gradle/
+**/build/
+.idea/
+*.iml
+local.properties
+*.apk
+*.aab
+*.hprof
+
+# 本実験の対象外: Kebbi関連
+/kebbi-app-main/
+/kebbi_bridge/
+
+# OS・ログ
+.DS_Store
+Thumbs.db
+*.log

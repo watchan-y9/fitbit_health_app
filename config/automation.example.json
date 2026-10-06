@@ -1,0 +1,51 @@
+{
+  "interval_minutes": 15,
+  "detect_after_import": true,
+  "participants": [
+    {
+      "participant_id": "example_001",
+      "sex": "female",
+      "age": 30,
+      "source": "google_health",
+      "env_prefix": "GOOGLE_EXAMPLE_001",
+      "data_types": ["steps", "heart_rate", "sleep"],
+      "backfill_days": 1
+    },
+    {
+      "participant_id": "example_002",
+      "sex": "male",
+      "age": 35,
+      "source": "google_health",
+      "env_prefix": "GOOGLE_EXAMPLE_002",
+      "data_types": ["steps", "heart_rate", "sleep"],
+      "backfill_days": 1
+    },
+    {
+      "participant_id": "example_003",
+      "sex": "female",
+      "age": 40,
+      "source": "google_health",
+      "env_prefix": "GOOGLE_EXAMPLE_003",
+      "data_types": ["steps", "heart_rate", "sleep"],
+      "backfill_days": 1
+    },
+    {
+      "participant_id": "example_004",
+      "sex": "male",
+      "age": 45,
+      "source": "google_health",
+      "env_prefix": "GOOGLE_EXAMPLE_004",
+      "data_types": ["steps", "heart_rate", "sleep"],
+      "backfill_days": 1
+    },
+    {
+      "participant_id": "example_005",
+      "sex": "female",
+      "age": 50,
+      "source": "google_health",
+      "env_prefix": "GOOGLE_EXAMPLE_005",
+      "data_types": ["steps", "heart_rate", "sleep"],
+      "backfill_days": 1
+    }
+  ]
+}

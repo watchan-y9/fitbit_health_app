@@ -1,0 +1,20 @@
+{
+  "workspaces": [
+    {
+      "workspace_id": "example_workspace_a",
+      "bot_token_env": "SLACK_BOT_TOKEN",
+      "app_token_env": "SLACK_APP_TOKEN",
+      "participant_map": "config/slack_participants.example.json",
+      "bot_id": "example_slack_bot_a",
+      "enabled": true
+    },
+    {
+      "workspace_id": "example_workspace_b",
+      "bot_token_env": "SLACK_BOT_TOKEN_WORKSPACE_B",
+      "app_token_env": "SLACK_APP_TOKEN_WORKSPACE_B",
+      "participant_map": "config/slack_participants.example.json",
+      "bot_id": "example_slack_bot_b",
+      "enabled": true
+    }
+  ]
+}

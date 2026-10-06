@@ -1,0 +1,264 @@
+@startuml System_Components
+title Fitbit / Google Health Anomaly Question System - Components
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+actor "Research participant" as participant
+
+cloud "Google Health API" as google
+cloud "Fitbit API" as fitbit
+cloud "Slack API" as slack
+
+database "SQLite\n/data/app.db" as db
+
+folder "config/" as config {
+  artifact "automation.example.json" as automation_config
+  artifact "slack_workspaces.json" as workspace_config
+  artifact "slack_participants*.json" as participant_config
+}
+
+package "backend" {
+  component "automation.py\n30 min scheduler" as automation
+  component "app/google_health_client.py\nGoogle Health importer" as google_client
+  component "app/fitbit_client.py\nFitbit importer" as fitbit_client
+  component "app/main.py\nFastAPI endpoints" as api
+  component "app/anomaly_detection.py\nrule-based detection" as detector
+  component "app/database.py\nSQLite schema/connection" as database
+}
+
+package "slack_bridge" {
+  component "anomaly_bot.py\nSlack notification and reply bot" as slack_bot
+}
+
+participant --> slack : replies in DM
+google_client --> google : OAuth + dataPoints
+fitbit_client --> fitbit : OAuth + intraday APIs
+automation --> automation_config : load participants/sources
+automation --> google_client : fetch steps, heart rate, sleep
+automation --> fitbit_client : optional Fitbit fetch
+automation --> api : save data + detect anomalies
+api --> detector : detect_candidates()
+api --> database : save/query rows
+database --> db
+detector --> db : uses sensor, sleep,\nparticipant baseline data
+automation --> slack_bot : notify_pending_anomalies()
+slack_bot --> workspace_config : load Slack workspaces
+slack_bot --> participant_config : map participant to DM/user
+slack_bot --> db : read pending events,\nwrite questions/responses
+slack_bot --> slack : chat.postMessage,\nSocket Mode events
+slack --> participant : anomaly question DM
+
+note right of automation
+Runs on JST :00 / :30 boundaries.
+Startup imports yesterday and today.
+Initial backfill interval notifications are suppressed.
+end note
+
+note right of detector
+Current main event types:
+- step_increase_30min
+- low_steps_30min
+- heart_rate_sleep_x2
+- heart_rate_step_increase_30min
+- heart_rate_low_steps_30min
+- daily_steps_demographic_outlier / normal
+- sleep_minutes_demographic_outlier / normal
+end note
+
+@enduml
+
+@startuml Automation_To_Slack_Sequence
+title 30-Minute Import, Detection, Slack Question, and Reply Flow
+
+skinparam shadowing false
+autonumber
+
+actor "Research participant" as user
+participant "automation.py" as automation
+participant "Google/Fitbit client" as importer
+participant "FastAPI app\napp/main.py" as api
+participant "anomaly_detection.py" as detector
+database "SQLite\napp.db" as db
+participant "Slack bot\nslack_bridge/anomaly_bot.py" as bot
+participant "Slack" as slack
+
+automation -> automation : wait until next JST :00 or :30
+automation -> importer : fetch data for configured participants
+
+alt Google Health source
+  importer -> importer : fetch_steps()
+  importer -> importer : fetch_heart_rate()
+  importer -> importer : fetch_sleep()
+  importer -> importer : aggregate sensor rows into 30-minute buckets
+else Fitbit source
+  importer -> importer : fetch activity / heart intraday data
+end
+
+automation -> api : save_sensor_data()
+api -> db : upsert sensor_data
+automation -> api : save_sleep_data(), save_sleep_stage_data()
+api -> db : upsert sleep_data / sleep_stage_data
+
+automation -> api : detect_anomalies()
+api -> db : load sensor_data, sleep_data,\nparticipants, baselines, known events
+api -> detector : detect_candidates()
+detector --> api : CandidateEvent list
+api -> db : insert anomaly_events(status='pending')
+
+automation -> bot : notify_pending_anomalies(participant_ids)
+bot -> db : suppress stale/backfill/cooldown events
+bot -> db : load pending anomaly_events
+bot -> bot : choose ready event\nsequence rules + quiet hours + sleep now check
+
+alt ready event exists
+  bot -> slack : conversations.open(user)
+  bot -> slack : chat.postMessage(question)
+  bot -> db : insert anomaly_questions\nset anomaly_events.status='asked'
+  slack -> user : DM question
+else no ready event
+  bot --> automation : skipped
+end
+
+user -> slack : first text reply\n(activity/context)
+slack -> bot : Socket Mode message event
+bot -> db : create slack_response_drafts
+bot -> slack : ask feeling follow-up
+
+user -> slack : second text reply\n(feeling)
+slack -> bot : Socket Mode message event
+bot -> db : insert anomaly_responses\nset status='answered'\ndelete draft
+bot -> slack : confirmation message
+
+@enduml
+
+@startuml Database_ERD
+title Main SQLite Tables
+
+skinparam shadowing false
+hide circle
+
+entity participants {
+  * participant_id : TEXT <<PK>>
+  --
+  display_name : TEXT
+  sex : TEXT
+  age : INTEGER
+  created_at : TEXT
+}
+
+entity sensor_data {
+  * id : INTEGER <<PK>>
+  --
+  participant_id : TEXT <<FK>>
+  timestamp : TEXT
+  heart_rate : REAL
+  max_heart_rate : REAL
+  steps : INTEGER
+  calories : REAL
+  active_minutes : REAL
+  --
+  UNIQUE(participant_id, timestamp)
+}
+
+entity sleep_data {
+  * id : INTEGER <<PK>>
+  --
+  participant_id : TEXT <<FK>>
+  start_time : TEXT
+  end_time : TEXT
+  sleep_minutes : REAL
+  sleep_stage : TEXT
+  source : TEXT
+  --
+  UNIQUE(participant_id, start_time, source)
+}
+
+entity sleep_stage_data {
+  * id : INTEGER <<PK>>
+  --
+  participant_id : TEXT <<FK>>
+  sleep_start_time : TEXT
+  start_time : TEXT
+  end_time : TEXT
+  stage : TEXT
+  stage_minutes : REAL
+  source : TEXT
+  --
+  UNIQUE(participant_id, sleep_start_time, start_time, stage, source)
+}
+
+entity demographic_baselines {
+  * baseline_id : INTEGER <<PK>>
+  --
+  metric : TEXT
+  sex : TEXT
+  age_min : INTEGER
+  age_max : INTEGER
+  weekday : INTEGER
+  mean_value : REAL
+  sd_value : REAL
+  lower_bound : REAL
+  upper_bound : REAL
+  unit : TEXT
+  source : TEXT
+}
+
+entity anomaly_events {
+  * event_id : TEXT <<PK>>
+  --
+  participant_id : TEXT <<FK>>
+  event_time : TEXT
+  event_type : TEXT
+  value : REAL
+  baseline : REAL
+  description : TEXT
+  status : TEXT
+  detected_at : TEXT
+  expires_at : TEXT
+}
+
+entity anomaly_questions {
+  * question_id : INTEGER <<PK>>
+  --
+  event_id : TEXT <<FK>>
+  participant_id : TEXT
+  robot_id : TEXT
+  asked_time : TEXT
+  message : TEXT
+}
+
+entity anomaly_responses {
+  * response_id : INTEGER <<PK>>
+  --
+  event_id : TEXT <<FK>>
+  participant_id : TEXT
+  robot_id : TEXT
+  response_time : TEXT
+  response_type : TEXT
+  response_value : TEXT
+  response_text : TEXT
+  response_latency_sec : REAL
+}
+
+entity slack_response_drafts {
+  * event_id : TEXT <<PK, FK>>
+  --
+  participant_id : TEXT
+  slack_workspace_id : TEXT
+  slack_channel_id : TEXT
+  activity_text : TEXT
+  created_at : TEXT
+  updated_at : TEXT
+}
+
+participants ||--o{ sensor_data
+participants ||--o{ sleep_data
+participants ||--o{ sleep_stage_data
+participants ||--o{ anomaly_events
+anomaly_events ||--o{ anomaly_questions
+anomaly_events ||--o{ anomaly_responses
+anomaly_events ||--o| slack_response_drafts
+
+@enduml

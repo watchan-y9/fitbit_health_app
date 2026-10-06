@@ -1,0 +1,10 @@
+{
+  "participants": [
+    {
+      "participant_id": "example_001",
+      "slack_channel_id": "D0000000000",
+      "slack_user_id": "U0000000000",
+      "enabled": true
+    }
+  ]
+}
